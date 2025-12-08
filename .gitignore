@@ -1,3 +1,4 @@
 bin
 obj
 TODO.md
+appsettings.Development.json
