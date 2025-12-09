@@ -1,8 +1,233 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
 }
+@model List<SpotifyClone.Controllers.YouTubeVideo>
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<!-- Search Bar -->
+<div class="search-bar mb-3 d-flex gap-2">
+    <input type="text" id="youtubeSearch" placeholder="Search YouTube..." class="form-control" />
+    <button class="btn btn-success" onclick="searchYouTube()">Search</button>
+    <button class="btn btn-secondary" onclick="resetVideos()">Reset</button>
 </div>
+
+<div class="video-container">
+@foreach (SpotifyClone.Controllers.YouTubeVideo video in Model)
+{
+    <div class="video-card">
+    <button class="add-to-playlist-btn"
+        onclick="addToPlaylist('@video.VideoId','@Uri.EscapeDataString(video.Title)','@video.Duration')">+
+    </button>
+
+    <iframe width="150" height="150"
+            src="https://www.youtube.com/embed/@video.VideoId?autoplay=0&modestbranding=1"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+    </iframe>
+    <p>@video.Title (@video.Duration sec)</p>
+</div>
+}
+</div>
+<!-- Playlist Selection Modal -->
+<div class="modal fade" id="playlistModal" tabindex="-1" aria-hidden="false">
+  <div class="modal-dialog">
+    <div class="modal-content text-light">
+      <div class="modal-header">
+        <h5 class="modal-title">Add to Playlist</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul id="playlistList" class="list-group">
+          <!-- Playlists will be inserted here -->
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+let currentVideo = null;
+
+// Keep original videos to allow reset
+const originalVideos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+function addToPlaylist(videoId, title, duration) {
+    title = decodeURIComponent(title);
+    currentVideo = { videoId, title, duration };
+
+    const playlists = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewData["Playlists"] ?? new List<SpotifyClone.Models.Playlist>()));
+
+    const listEl = document.getElementById("playlistList");
+    listEl.innerHTML = '';
+
+    if (playlists.length === 0) {
+        const li = document.createElement('li');
+        li.className = "list-group-item bg-secondary text-light";
+        li.textContent = "No playlists exist. Create one first.";
+        listEl.appendChild(li);
+    } else {
+        playlists.forEach(p => {
+            const li = document.createElement('li');
+            li.className = "playlist-name list-group-item list-group-item-action text-light";
+            li.style.cursor = "pointer";
+            li.textContent = p.Name;      // Use PascalCase
+            li.onclick = () => submitAddToPlaylist(p.Id); // Use PascalCase
+            listEl.appendChild(li);
+        });
+    }
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('playlistModal'));
+    modal.show();
+}
+
+function submitAddToPlaylist(playlistId) {
+    fetch(`/playlist/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            PlaylistId: playlistId, 
+            VideoId: currentVideo.videoId,
+            Title: currentVideo.title,
+            Duration: currentVideo.duration
+        })
+    })
+    .then(res => {
+        if (res.ok) {
+            alert("Added to playlist!");
+            const modalEl = bootstrap.Modal.getInstance(document.getElementById('playlistModal'));
+            modalEl.hide();
+        } else {
+            alert("Failed to add to playlist.");
+        }
+    })
+    .catch(err => console.error(err));
+}
+
+async function searchYouTube() {
+    const query = document.getElementById("youtubeSearch").value.trim();
+    if (!query) return;
+
+    const response = await fetch(`/home/search?query=${encodeURIComponent(query)}`);
+    if (!response.ok) return alert("Search failed.");
+
+    const videos = await response.json(); // expect top 5 videos [{VideoId, Title, Duration}, ...]
+    console.log(videos);
+    const container = document.querySelector(".video-container");
+    container.innerHTML = '';
+
+    videos.forEach(video => {
+        const div = document.createElement('div');
+        div.className = 'video-card';
+        div.innerHTML = `
+            <button class="add-to-playlist-btn" onclick="addToPlaylist('${video.videoId}','${video.title}','${video.duration}')">+</button>
+            <iframe width="150" height="150" src="https://www.youtube.com/embed/${video.videoId}?autoplay=0&modestbranding=1" frameborder="0" allowfullscreen></iframe>
+            <p>${video.title} (${video.duration} sec)</p>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// Reset the container back to original "Most listened globally"
+function resetVideos() {
+    const container = document.querySelector(".video-container");
+    container.innerHTML = '';
+
+    originalVideos.forEach(video => {
+        const div = document.createElement('div');
+        div.className = 'video-card';
+        div.innerHTML = `
+            <button class="add-to-playlist-btn" onclick="addToPlaylist('${video.VideoId}','${video.Title}','${video.Duration}')">+</button>
+            <iframe width="150" height="150" src="https://www.youtube.com/embed/${video.VideoId}?autoplay=0&modestbranding=1" frameborder="0" allowfullscreen></iframe>
+            <p>${video.Title} (${video.Duration} sec)</p>
+        `;
+        container.appendChild(div);
+    });
+}
+
+</script>
+<style>
+body {
+    background-color: rgb(18 18 18);
+    color: rgb(179 179 179);
+}
+
+.video-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: auto;
+    width: 80%;
+}
+
+.video-card {
+    position: relative;
+    flex: 0 0 calc(25% - 5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+iframe {
+    border-radius: 15px;
+    height: 150px;
+    width: 150px;
+}
+
+.video-card p {
+    font-size: 14px;
+    line-height: 1.2em;
+    margin: 6px 0 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;  /* show 2 lines then ... */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 150px;
+}
+
+.add-to-playlist-btn {
+    font-family: Arial, sans-serif;
+    position: absolute;
+    top: 8px;
+    right: 25px;
+    z-index: 2; /* make sure it's above iframe */
+
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+
+    display: flex;              /* centers horizontally */
+    justify-content: center;    /* centers horizontally */
+    align-items: center;        /* centers vertically */
+
+    font-size: 18px;
+    line-height: 0;             /* ensures no text offset */
+    cursor: pointer;
+
+    backdrop-filter: blur(4px);
+    transition: 0.2s;
+}
+
+.add-to-playlist-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+    color: black;
+}
+
+.modal-content {
+    background-color: rgb(40 40 40);
+}
+
+.playlist-name {
+    background-color: rgb(40 40 40);
+    border: none;
+}
+
+.playlist-name:hover {
+    background-color: rgb(40 40 40);
+}
+</style>

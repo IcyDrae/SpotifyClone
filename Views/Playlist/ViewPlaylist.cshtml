@@ -1,0 +1,81 @@
+@model SpotifyClone.Models.Playlist
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<h2>@Model.Name</h2>
+
+<div class="video-container">
+@foreach (var ps in Model.PlaylistSongs)
+{
+    var video = ps.Song;
+    <div class="video-card">
+        <iframe width="150" height="150" 
+                src="https://www.youtube.com/embed/@video.VideoId?autoplay=0&modestbranding=1" 
+                frameborder="0" allowfullscreen>
+        </iframe>
+        <p>@video.Title (@video.Duration / 60)m</p>
+    </div>
+}
+</div>
+
+<style>
+
+#sidebar {
+    width: 295px !important;
+    height: 100vh;
+}
+
+#sidebar a:hover {
+    text-decoration: none;
+    color: #1db954; /* Spotify green */
+}
+
+#sidebar button#createPlaylistBtn {
+    font-weight: bold;
+    border-radius: 20px;
+    background-color: rgb(31 31 31);
+    color: white;
+}
+
+.playlists {
+    text-align: left;
+    margin: 10px;
+}
+
+.video-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: auto;
+}
+
+.video-card {
+    position: relative;
+    flex: 0 0 calc(25% - 5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+iframe {
+    border-radius: 15px;
+    height: 150px;
+    width: 150px;
+}
+
+.video-card p {
+    font-size: 14px;
+    line-height: 1.2em;
+    margin: 6px 0 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;  /* show 2 lines then ... */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 150px;
+}
+</style>
